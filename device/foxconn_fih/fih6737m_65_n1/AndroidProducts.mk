@@ -1,0 +1,1 @@
+PRODUCT_MAKEFILES := $(LOCAL_DIR)/full_fih6737m_65_n1.mk

@@ -1,0 +1,52 @@
+on init
+    #create mountpoint for persist partition
+    mkdir /persist 0771 system system
+
+on post-fs
+    chown system system /persist
+    chmod 0771 /persist
+
+    # We restorecon /persist to set SEPolicy label.
+    restorecon /persist
+
+on post-fs-data
+    # Create /data/key_provisioning dir and get proper encryption policy installed
+    # Key Installation
+    mkdir /data/key_provisioning 0771 system system
+
+on fs
+    write /proc/bootprof "MOBICORE: Starting mcDriverDaemon"
+    start mobicore
+    # MobiCore Daemon Paths
+    write /proc/bootprof "MOBICORE: export MC_AUTH_TOKEN_PATH /efs"
+    export MC_AUTH_TOKEN_PATH /efs
+
+# For META/FACTORY mode
+on property:ro.crypto.state=unencrypted
+    write /proc/bootprof "MOBICORE: create /data/misc/mcRegistry ++ (unencrypted)"
+    mkdir /data/misc/mcRegistry 0775 system system
+    write /proc/bootprof "MOBICORE: create /data/misc/mcRegistry -- (unencrypted)"
+
+# Normal mode, FBE
+on property:ro.crypto.type=file && property:ro.crypto.state=encrypted
+    write /proc/bootprof "MOBICORE: create /data/misc/mcRegistry ++ (FBE encrypted)"
+    mkdir /data/misc/mcRegistry 0775 system system
+    write /proc/bootprof "MOBICORE: create /data/misc/mcRegistry -- (FBE encrypted)"
+
+# Normal mode, FDE
+on property:vold.decrypt=trigger_restart_framework
+    write /proc/bootprof "MOBICORE: create /data/misc/mcRegistry ++ (FDE encrypted)"
+    mkdir /data/misc/mcRegistry 0775 system system
+    write /proc/bootprof "MOBICORE: create /data/misc/mcRegistry -- (FDE encrypted)"
+
+#service rda /vendor/bin/rda
+#    class main
+#    user shell
+#    group shell
+
+# Start Daemon (Registry directories should already be present)
+service mobicore /vendor/bin/mcDriverDaemon -r /vendor/app/mcRegistry/020f0000000000000000000000000000.drbin -r /vendor/app/mcRegistry/05120000000000000000000000000000.drbin -r /vendor/app/mcRegistry/070b0000000000000000000000000000.drbin -r /vendor/app/mcRegistry/020b0000000000000000000000000000.drbin -r /vendor/app/mcRegistry/030b0000000000000000000000000000.drbin
+    user system
+    group system
+    class core
+    oneshot
